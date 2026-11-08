@@ -9,6 +9,7 @@ mod floats;
 mod movable;
 mod pane_drag;
 mod pane_size;
+mod adaptive;
 mod titlebar;
 
 use crate::layout::{Axis, Background as Paint, Content, Fit, HeaderContent, Kind, Line, Node, PaneFrame, Size as Span};
@@ -381,6 +382,7 @@ pub struct AppWindow {
     seen: BTreeSet<String>,
     bounds: Rc<RefCell<HashMap<String, Bounds<Pixels>>>>,
     hidden_fit: pane_size::HiddenFit,
+    adaptive_rows: RefCell<Option<(String, String, Vec<String>, usize)>>,
     drag: Option<Drag>,
     written_layout: String,
     /// The shown layout as its file has it; `chrome` is this plus the clicks
@@ -486,6 +488,7 @@ impl AppWindow {
             seen,
             bounds: Default::default(),
             hidden_fit: Default::default(),
+            adaptive_rows: Default::default(),
             drag: None,
             written_layout: String::new(),
             file_chrome: default_layout("main"),
@@ -3963,7 +3966,14 @@ impl AppWindow {
         let mut el = div().relative().overflow_hidden().size_full().flex();
         let bounds_map = self.bounds.clone();
         let id = n.id.clone();
-        el = el.child(canvas(move |b, _, _| { bounds_map.borrow_mut().insert(id, b); }, |_, _, _, _| {}).absolute().size_full());
+        let adaptive = adaptive::enabled(n);
+        let view = cx.entity().downgrade();
+        el = el.child(canvas(move |b, _, cx| {
+            let previous = bounds_map.borrow_mut().insert(id, b);
+            if adaptive && previous.is_none_or(|old| old.size != b.size) {
+                let _ = view.update(cx, |_, cx| cx.notify());
+            }
+        }, |_, _, _, _| {}).absolute().size_full());
         el = apply_look(el, n, focused.contains(&n.id));
         if n.window_drag {
             el = self.window_drag(el, cx);
@@ -4065,7 +4075,10 @@ impl AppWindow {
                     .into_any_element(),
             },
             Content::Context { .. } => match self.model.active_tab() {
-                Some(c) => self.render_node(c.shown(), focused, self.pane_frame(), cx),
+                Some(c) => {
+                    let arranged = self.arranged(n, c.shown(), self.pane_frame());
+                    self.render_node(arranged.as_ref().unwrap_or(c.shown()), focused, self.pane_frame(), cx)
+                },
                 None if self.documents.get("").is_some_and(|s| s.layout() == "loading") => div().size_full().into_any_element(),
                 None => {
                     let key = crate::keys::listing().into_iter().find(|(_, _, a)| a == "space.new").map(|(_, k, _)| format!(" ({k})"));
@@ -5188,7 +5201,7 @@ mod tests {
     /// fresh app home: a window takes process-wide things (the app home, the
     /// mods' request channel) that tests beside it would otherwise share.
     fn in_own_process(name: &str) {
-        let home = std::path::PathBuf::from(format!("/var/tmp/herdr-window-test-{name}-{}", std::process::id()));
+        let home = std::env::temp_dir().join(format!("herdr-window-test-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&home);
         let out = std::process::Command::new(std::env::current_exe().unwrap())
             .args(["--exact", &format!("window::tests::{name}"), "--nocapture", "--test-threads=1"])
@@ -5395,6 +5408,7 @@ export default class Probe extends View {
     }
 
     include!("window/pane_size_tests.rs");
+    include!("window/adaptive_tests.rs");
 
     #[test]
     fn terminal_menu_preserves_clicked_target_and_uses_mod_dimensions() {

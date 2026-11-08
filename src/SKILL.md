@@ -111,6 +111,17 @@ those files or the generated guide. The app rewrites them on start.
   not in an earlier task. The installed guide explains its 250 ms quit budget
   and which cleanup commands go out before shutdown.
 
+This personal fork supports `"arrangement": "auto"` inside a layout block's
+`"content": {"tab": "active"}`. It places panes side by side first.
+If a pane has less than 360 logical pixels of content width, auto mode adds rows.
+Returning to fewer rows requires 24 extra pixels per pane unless membership changes.
+It preserves the saved splits,
+pane IDs, terminal addresses, mod copies, focus, and zoom.
+
+Custom nested containers, stacks, fixed pixel sizes, and `min`/`max` constraints
+keep their manual arrangement. Auto mode does not discard custom structure.
+Remove the option to restore manual splits. Released v0.1.13 does not provide this option.
+
 After every mod change:
 
 ```sh

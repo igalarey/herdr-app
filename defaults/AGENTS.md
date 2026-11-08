@@ -338,6 +338,33 @@ layout's look and a block can differ:
   layout's root `theme`.
 - Today only the root's look applies; a block's own look is coming.
 
+### Automatic pane arrangement (personal fork)
+
+In a personal layout, add `"arrangement": "auto"` to the tab block's content:
+
+```json
+{ "tab": "active", "arrangement": "auto" }
+```
+
+The active tab places panes side by side first.
+It uses the fewest balanced rows that give each pane at least 360 logical pixels of content width.
+Height and aspect ratio do not add rows when the width is sufficient.
+For unchanged panes, reducing rows requires 24 extra logical pixels per pane to prevent resize jitter.
+Narrowing below the target or changing pane membership recalculates immediately.
+If even one column cannot meet the target, each pane gets its own row.
+Pane IDs, terminal addresses, mod copies, focus, and the saved tab tree stay unchanged.
+A zoomed pane still fills the area. Other tabs keep their saved splits.
+
+Automatic boundaries cannot be dragged. Pane commands still act on the saved tree.
+
+Only ordinary row/column split trees use automatic arrangement.
+Custom nested containers, stacks, fixed pixel sizes, and `min`/`max` constraints keep their manual arrangement.
+Nested decoration, floating blocks, and other container properties are not discarded.
+Root and pane decoration stays intact. Shared geometry accounts for their padding, borders, and pane headers.
+
+Remove `arrangement`, or set it to `"manual"`, to restore the saved splits.
+This option is specific to this fork, not the released v0.1.13 app.
+
 ### Pane frames
 
 The tab block says how each pane of the shown tab is wrapped:
@@ -1017,3 +1044,10 @@ including a small herdr-core skill you can install with the user's permission.
 - One mod per idea. Don't edit `AGENTS.md` or the `.d.ts` files (the app
   rewrites them). Don't touch other mods unless the request
   needs it.
+
+## Optional personal sidebar (source checkout only)
+
+This fork keeps `extras/mods/personal-agents/` outside the shipped defaults.
+Its nested sidebar displays inherited Working or Blocked status without changing agent reports or terminal ownership.
+Installation is manual and opt-in. The source README describes the copy and personal-layout steps.
+The shipped `agents` mod remains unchanged.

@@ -40,7 +40,7 @@ fn inset(size: Size<Pixels>, x: f32, y: f32) -> Size<Pixels> {
     gpui::size((size.width - px(x)).max(px(0.0)), (size.height - px(y)).max(px(0.0)))
 }
 
-fn content_size(n: &Node, size: Size<Pixels>, focused: bool, zoom: f32) -> Size<Pixels> {
+pub(super) fn content_size(n: &Node, size: Size<Pixels>, focused: bool, zoom: f32) -> Size<Pixels> {
     let border = node_border(n, focused).map_or(0.0, |line| line.width);
     let (y, x) = padding(n);
     inset(size, 2.0 * (x + border) * zoom, 2.0 * (y + border) * zoom)
@@ -84,7 +84,7 @@ fn shares(children: &[&Node], available: f32, zoom: f32) -> Vec<f32> {
     sizes
 }
 
-fn pane_size(n: &Node, size: Size<Pixels>, target: &str, frame: Option<&PaneFrame>, focused: &HashSet<String>, zoom: f32) -> Option<Size<Pixels>> {
+pub(super) fn pane_size(n: &Node, size: Size<Pixels>, target: &str, frame: Option<&PaneFrame>, focused: &HashSet<String>, zoom: f32) -> Option<Size<Pixels>> {
     if n.hidden { return None; }
     let mut size = content_size(n, size, focused.contains(&n.id), zoom);
     match &n.kind {
@@ -131,17 +131,17 @@ pub(super) enum HiddenFit {
 impl AppWindow {
     pub(super) fn initial_size(&self, root: &Node, pane: &str, window: &Window) -> Option<(u16, u16)> {
         let focused = root.path_to(pane)?.into_iter().collect();
-        self.displayed_size(root, root.panes().len(), pane, &focused, window)
+        self.displayed_size(root, root.panes().len(), pane, &focused, window, true)
     }
 
     /// The grid `pane` gets when `tab` is the one shown.
     pub(super) fn shown_size(&self, tab: &Tab, pane: &str, window: &Window) -> Option<(u16, u16)> {
         let focused = tab.focused_pane().and_then(|f| tab.root.path_to(&f)).unwrap_or_default().into_iter().collect();
-        self.displayed_size(tab.shown(), tab.root.panes().len(), pane, &focused, window)
+        self.displayed_size(tab.shown(), tab.root.panes().len(), pane, &focused, window, self.model.active_tab().is_some_and(|active| active.id == tab.id))
     }
 
     /// `shown`: the tree on screen; `panes`: how many the tab has (its frame needs more than one, or `lone`).
-    fn displayed_size(&self, shown: &Node, panes: usize, pane: &str, focused: &HashSet<String>, window: &Window) -> Option<(u16, u16)> {
+    fn displayed_size(&self, shown: &Node, panes: usize, pane: &str, focused: &HashSet<String>, window: &Window, active: bool) -> Option<(u16, u16)> {
         let (context, area) = self.context_area()?;
         let frame = match context.content() {
             Some(Content::Context { pane: Some(frame), .. }) if frame.lone || panes > 1 => Some(frame),
@@ -151,7 +151,8 @@ impl AppWindow {
         // The absolute bounds canvas already excludes the context border (padding box).
         let (y, x) = padding(context);
         let size = inset(area, 2.0 * x * zoom, 2.0 * y * zoom);
-        let size = pane_size(shown, size, pane, frame, focused, zoom)?;
+        let arranged = active.then(|| self.arranged(context, shown, frame)).flatten();
+        let size = pane_size(arranged.as_ref().unwrap_or(shown), size, pane, frame, focused, zoom)?;
         Some(crate::terminal::grid_size(size, crate::terminal::cell_size(window)))
     }
 

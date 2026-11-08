@@ -1,8 +1,73 @@
-# Herdr
+# Herdr — personal fork
 
 Herdr is a desktop app for terminals and coding agents. Keep work in spaces, see which agents need you, and leave terminals running when you close the window.
 
-## Install
+## About this fork
+
+This is [igalarey/herdr-app](https://github.com/igalarey/herdr-app), a personal fork of [Herdr](https://github.com/herdrdev/herdr-app).
+It starts from upstream v0.1.13. It is not an official Herdr release.
+The fork adds opt-in pane arrangement and an optional personal agents sidebar.
+
+### Columns first, then rows
+
+In a personal layout, add `"arrangement": "auto"` to the active-tab block's content:
+
+```json
+{ "tab": "active", "arrangement": "auto" }
+```
+
+Auto mode uses the fewest balanced rows that give each pane at least **360 logical pixels of content width**.
+Height and aspect ratio do not add rows when width is sufficient.
+For unchanged membership, fewer rows require **24 extra logical pixels per pane** to prevent resize jitter.
+Membership changes and width reductions past the target recalculate immediately.
+If one column cannot meet the target, each pane gets its own row.
+
+This is a render-only projection. Saved splits, pane order and IDs, terminal ownership, mod instances, focus, and zoom remain intact.
+Shared geometry accounts for padding, frames, borders, and headers.
+Custom nested containers, stacks, fixed pixel sizes, and minimum/maximum constraints retain their manual arrangement.
+Automatic boundaries cannot be dragged. Remove the option, or use `"manual"`, to restore saved splits.
+
+[Verification and limits](docs/adaptive-panes-verification.md) distinguish automated checks from coordinator visual checks.
+Verification covers Linux only. One native test requires an isolated core.
+Four known upstream debug-selector tests fail under the unchanged release profile. The full release suite is not green.
+
+### Optional personal agents sidebar
+
+[extras/mods/personal-agents](extras/mods/personal-agents) contains the personal sidebar and its existing tests.
+It is **not bundled or installed automatically**, and does not replace the shipped `agents` mod.
+It displays adopted and unadopted descendants as one nested forest.
+A parent shows Working while a descendant works, even if the parent reports Idle or Done.
+Blocked status takes priority over Working. Completed descendants no longer keep a parent Working.
+
+The inherited status is visual only: it does not change agent reports, terminal ownership, or agent execution.
+Existing focus, peek, pin, and navigation actions remain available.
+Like other mods, this code is trusted, not sandboxed.
+
+To install it manually:
+
+1. Read the code and the [mod guide](defaults/AGENTS.md).
+2. Locate your app home: `~/.config/herdr-app`, or the directory selected by `HERDR_APP_HOME`.
+3. If `mods/personal-agents` already exists, back it up and review differences before replacing files.
+4. If the directory is absent, create `mods/personal-agents` inside the app home.
+5. Copy `main.js` and `mod.json` from `extras/mods/personal-agents/` into that directory.
+6. Keep the directory name `personal-agents`: the sort popup uses that name.
+7. Duplicate a shipped layout through the command palette, or use an existing personal layout.
+8. In that personal layout, change only the sidebar block's content from `{"mod":"agents"}` to `{"mod":"personal-agents"}`.
+9. Validate the copied mod with `herdr-app check <app-home>/mods/personal-agents`.
+10. Select the personal layout and inspect the sidebar and `herdr-app status` for errors.
+
+To restore the shipped sidebar, change the personal layout's mod reference back to `agents`.
+This resource includes no personal configuration, mod storage, or verification screenshots.
+Run the existing sidebar tests from the repository root:
+
+```sh
+node --test extras/mods/personal-agents/tests/sidebar.test.cjs
+```
+
+## Install upstream releases
+
+The installers in this section install **upstream Herdr**, not this fork or its optional sidebar.
+To use this fork, [build from source](#build-from-source) and enable the features explicitly.
 
 ### Linux and macOS
 
@@ -87,7 +152,9 @@ Ctrl+Shift+P shows every command and its key (Cmd+Shift+P on macOS). Change any 
 
 Installed releases check for updates in the background and download a new app beside the running one. It takes over when you quit and reopen, or choose the update action. Your terminals keep running in the core.
 Settings → Updates shows what is available. What's New opens after an update; you can open it again from the command palette.
-Builds from source do not update themselves.
+Builds from source do not update themselves by default.
+For this fork, build without `HERDR_APP_RELEASE` and keep `HERDR_RELEASES_URL` unset at runtime.
+Review upstream changes manually before updating.
 
 Usage telemetry is on by default in releases. Turn it off in Settings → Privacy.
 Mods are trusted code, not sandboxed extensions. Read [security and privacy](docs/security.md) before installing someone else's mod.
@@ -112,13 +179,13 @@ See the [command reference](docs/commands.md) for arguments.
 
 ## Build from source
 
-For bugs, mod API requests and code contributions, see [Contributing](CONTRIBUTING.md).
+For upstream contribution rules, see [Contributing](CONTRIBUTING.md). Report fork-specific behavior to this personal fork, not upstream.
 
 Clone this repo with its submodules. Use Rust 1.95.0 and Zig 0.16.0, the versions used in [CI](.github/workflows/ci.yml).
 Linux needs the development packages listed in that workflow.
 
 ```sh
-git clone --recurse-submodules https://github.com/herdrdev/herdr-app.git
+git clone --recurse-submodules --branch feat/personal-herdr https://github.com/igalarey/herdr-app.git
 cd herdr-app
 just build
 just test
